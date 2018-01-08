@@ -24,4 +24,5 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:player.png
+/build:enemy.png
 

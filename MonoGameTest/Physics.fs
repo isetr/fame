@@ -29,30 +29,26 @@
             | Player _, Wall ->
                 match a.BodyType, b.BodyType with
                 | Dynamic s, Static ->
-                    {
-                        a with
-                            BodyType = Dynamic (FindNewVelocity a.DesiredBounds b.CurrentBounds s)
+                    { a with
+                        BodyType = Dynamic (FindNewVelocity a.DesiredBounds b.CurrentBounds s)
                     }
                 | _ -> a
             | _ -> a
 
-        let rec FigureCollisions (actor: WorldActor) (sortedActors: WorldActor list) =
-            match sortedActors with
-            | [] -> actor
-            | x :: xs ->
-                let a = 
-                    if actor.DesiredBounds.Intersects x.DesiredBounds then
-                        FindOptimumCollision actor x
-                    else
-                        actor
-                FigureCollisions a xs
+        let FigureCollisions (actor: WorldActor) (sortedActors: WorldActor list) =
+            sortedActors
+            |> List.fold (fun (actor:WorldActor) x ->
+                if actor.DesiredBounds.Intersects x.DesiredBounds then
+                    FindOptimumCollision actor x
+                else
+                    actor
+            ) actor
 
-        let rec FixCollisions (toFix: WorldActor list) (alreadyFixed: WorldActor list) =
-            match toFix with
-            | [] -> alreadyFixed
-            | x :: xs ->
-                let a = FigureCollisions x alreadyFixed
-                FixCollisions xs (a::alreadyFixed)
+        let FixCollisions (dynamics: WorldActor list) (statics: WorldActor list) =
+            dynamics
+            |> List.fold (fun statics newDyn ->
+                FigureCollisions newDyn statics :: statics
+            )   statics
 
         FixCollisions dyn stc
 

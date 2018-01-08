@@ -18,8 +18,8 @@ type Game1 () as x =
         lazy 
         (
             [
-                ("player", WorldActor.ActorType.Player (WorldActor.PlayerState.Nothing), Vector2(10.f,10.f), Vector2(32.f, 32.f), false)
-                ("player", WorldActor.ActorType.Wall, Vector2(50.f, 10.f), Vector2(32.f, 32.f), true)
+                ("player", WorldActor.ActorType.Player (WorldActor.PlayerState.Nothing), Vector2(10.f,10.f), Vector2(128.f, 128.f), false)
+                ("enemy", WorldActor.ActorType.Wall, Vector2(256.f, 10.f), Vector2(128.f, 128.f), true)
             ]
             |> List.map (fun (tex, at, pos, size, is) -> WorldActor.Create x.Content tex at pos size is)
         )
