@@ -3,8 +3,8 @@
     open Microsoft.Xna.Framework
     open Microsoft.Xna.Framework.Graphics
 
-    let FrameWidth = 32
-    let FrameHeight = 32
+    let FrameWidth = 128
+    let FrameHeight = 128
 
     type Animation =
         {

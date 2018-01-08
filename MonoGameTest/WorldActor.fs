@@ -37,7 +37,7 @@
         let tex =
             if not <| System.String.IsNullOrEmpty textureName then
                 let tex = content.Load<Texture2D> textureName
-                let anim = Animation.Create tex 100
+                let anim = Animation.Create tex 1000
                 Some anim
             else
                 None
@@ -55,11 +55,8 @@
         }
 
     let Update (gameTime: GameTime) (actor: WorldActor) =
-        let animation = 
-            match actor.Animation with
-            | Some anim -> Some <| Animation.Update gameTime anim
-            | None -> None
-        {
-            actor with
-                Animation = animation
+        { actor with
+            Animation =
+                actor.Animation
+                |> Option.map (Animation.Update gameTime)
         }
