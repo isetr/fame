@@ -39,6 +39,7 @@
             FrameSize         : Vector2
             Data              : AnimationData
         }
+        member this.CurrentFrame = this.CurrentFrameIndex
 
     let rec Create = function
         | Still texture ->
