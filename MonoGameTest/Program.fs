@@ -1,7 +1,7 @@
-﻿open Game
+﻿open BallGame
 
 [<EntryPoint>]
 let main argv = 
-    use g = new Game1()
+    use g = new Game2()
     g.Run()
     0
