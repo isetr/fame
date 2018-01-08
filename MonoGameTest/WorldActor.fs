@@ -33,14 +33,7 @@
                 | Static    -> this.Position
             Rectangle((int desiredPos.X),(int desiredPos.Y),(int this.Size.X),(int this.Size.Y))
 
-    let Create (content: ContentManager) textureName actorType position size isStatic =
-        let tex =
-            if not <| System.String.IsNullOrEmpty textureName then
-                let tex = content.Load<Texture2D> textureName
-                let anim = Animation.Create tex 1000
-                Some anim
-            else
-                None
+    let Create (content: ContentManager) animation actorType position size isStatic =
         let bt =
             if isStatic then
                 Static
@@ -51,7 +44,7 @@
             Size = size
             BodyType = bt
             ActorType = actorType
-            Animation = tex
+            Animation = animation
         }
 
     let Update (gameTime: GameTime) (actor: WorldActor) =

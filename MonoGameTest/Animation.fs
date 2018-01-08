@@ -6,43 +6,103 @@
     let FrameWidth = 128
     let FrameHeight = 128
 
-    type Animation =
+    type AnimationInitKind =
+        | Still of Texture2D
+        | FullImage of Texture2D * FullImageData
+        | ImagePart of Texture2D * ImagePartData
+    and FullImageData =
         {
-            TextureStrip    : Texture2D
-            FrameCount      : int
-            CurrentFrame    : int
-            CurrentTime     : int
-            TimePerFrame    : int
+            FrameSize: Vector2
+            FrameCount: int
+            TimePerFrame: int
+        }
+    and ImagePartData =
+        {
+            StartFrame: int
+            FrameSize: Vector2
+            FrameCount: int
+            TimePerFrame: int
+        }
+    type AnimationData =
+        {
+            Size: Vector2
+            Color: Color
+            TimePerFrame: int
+        }
+    type Animation =
+        private {
+            TextureStrip      : Texture2D
+            FrameCount        : int
+            CurrentFrameIndex : int
+            Elapsed           : int
+            StartFrame        : int
+            FrameSize         : Vector2
+            Data              : AnimationData
         }
 
-    let Create (texture: Texture2D) (frameLength: int) =
-        let frameCount = texture.Width / FrameWidth
-        {
-            TextureStrip = texture
-            FrameCount = frameCount
-            CurrentFrame = 0
-            CurrentTime = 0
-            TimePerFrame = frameLength
+    let rec Create = function
+        | Still texture ->
+            Create <| FullImage (
+                texture,
+                {
+                    FrameSize = Vector2(float32 texture.Bounds.Width, float32 texture.Bounds.Height)
+                    FrameCount = 1
+                    TimePerFrame = 0
+                }
+            )
+        | FullImage (texture,fullData) ->
+            Create <| ImagePart (
+                texture,
+                {
+                    FrameSize = fullData.FrameSize
+                    FrameCount = fullData.FrameCount
+                    TimePerFrame = fullData.TimePerFrame
+                    StartFrame = 0
+                }
+            )
+        | ImagePart (texture,data) ->
+            {
+                TextureStrip = texture
+                FrameCount = data.FrameCount
+                CurrentFrameIndex = 0
+                Elapsed = 0
+                StartFrame = data.StartFrame
+                FrameSize = data.FrameSize
+                Data =
+                    {
+                        Color = Color.White
+                        Size = data.FrameSize
+                        TimePerFrame = data.TimePerFrame
+                    }
+            }
+
+    let Lens (lens : AnimationData -> AnimationData) (animation : Animation) =
+        { animation with
+            Data = animation.Data |> lens
         }
 
     let Update (gameTime: GameTime) (animation: Animation) =
-        let time = animation.CurrentTime + (int gameTime.ElapsedGameTime.Milliseconds)
-        let newFrame =
-            if time > animation.TimePerFrame then
-                (animation.CurrentFrame + 1) % animation.FrameCount
+        let elapsed = animation.Elapsed + int gameTime.ElapsedGameTime.Milliseconds
+        let (elapsed,currentIndex) =
+            if animation.Data.TimePerFrame > 0 && elapsed >= animation.Data.TimePerFrame then
+                let frameJump = elapsed / animation.Elapsed
+                let newFrameIndex = (animation.CurrentFrameIndex + frameJump) % animation.FrameCount
+                elapsed - frameJump * animation.Data.TimePerFrame, newFrameIndex
             else
-                animation.CurrentFrame
-        let counter = 
-            if time >animation.TimePerFrame then
-                0
-            else
-                time
-        {
-            animation with
-                CurrentFrame = newFrame
-                CurrentTime = counter
+                elapsed, animation.CurrentFrameIndex
+        { animation with
+            CurrentFrameIndex = currentIndex
+            Elapsed = elapsed
         }
 
     let Draw (spriteBatch: SpriteBatch) (animation: Animation) (position: Vector2) =
-        let rect = System.Nullable(Rectangle(animation.CurrentFrame * FrameWidth, 0, FrameWidth, FrameHeight))
-        spriteBatch.Draw(animation.TextureStrip, position, rect, Color.White)
+        let sourceX = animation.CurrentFrameIndex * int animation.FrameSize.X % animation.TextureStrip.Width
+        let sourceY = animation.CurrentFrameIndex * int animation.FrameSize.X / animation.TextureStrip.Width
+        let sourceRect = Rectangle(sourceX, sourceY, int animation.FrameSize.X, int animation.FrameSize.Y)
+        let destRect = Rectangle(position.ToPoint(), animation.Data.Size.ToPoint())
+        spriteBatch.Draw(
+            animation.TextureStrip,
+            destRect,
+            sourceRect |> System.Nullable,
+            animation.Data.Color
+        )

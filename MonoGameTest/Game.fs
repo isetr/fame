@@ -3,6 +3,7 @@
 open Microsoft.Xna.Framework
 open Microsoft.Xna.Framework.Graphics
 open Microsoft.Xna.Framework.Input
+open Animation
 
 type Game1 () as x =
     inherit Game()
@@ -18,10 +19,23 @@ type Game1 () as x =
         lazy 
         (
             [
-                ("player", WorldActor.ActorType.Player (WorldActor.PlayerState.Nothing), Vector2(10.f,10.f), Vector2(128.f, 128.f), false)
-                ("enemy", WorldActor.ActorType.Wall, Vector2(256.f, 10.f), Vector2(128.f, 128.f), true)
+                ( Still <| x.Content.Load<Texture2D> "player"
+                , WorldActor.ActorType.Player (WorldActor.PlayerState.Nothing)
+                , Vector2(10.f,10.f)
+                , Vector2(64.f, 64.f)
+                , false )
+                ( FullImage ( x.Content.Load<Texture2D>("enemy")
+                            , { FrameCount = 2; FrameSize = Vector2(128.f, 128.f); TimePerFrame = 1000 })
+                , WorldActor.ActorType.Wall
+                , Vector2(256.f, 10.f)
+                , Vector2(64.f, 64.f)
+                , true )
             ]
-            |> List.map (fun (tex, at, pos, size, is) -> WorldActor.Create x.Content tex at pos size is)
+            |> List.map (fun (tex, at, pos, size, is) ->
+                let animation =
+                    tex |> Animation.Create
+                WorldActor.Create x.Content (animation |> Animation.Lens (fun data -> {data with Size = Vector2(64.f,64.f)}) |> Some) at pos size is
+            )
         )
 
     let DrawActor (spriteBatch: SpriteBatch) (actor: WorldActor.WorldActor) =
