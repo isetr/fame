@@ -11,89 +11,74 @@ type GameState =
         Actors: WorldActor list
         Playing: bool
         WonAnimation: Animation
+        SpriteBatch: SpriteBatch
     }
 
-type Game1 () as x =
-    inherit Game()
+let game1Behaviour : FSharpGame.FSharpGameBehaviour<SpriteBatch,GameState> =
+    {
+        Init = fun game ->
+            game.Content.RootDirectory <- "Content"
+            game.Window.Position <- Point(60,60)
+            ()
 
-    do x.Content.RootDirectory <- "Content"
-    do x.Window.Position <- Point(60, 60)
+        Initialize = fun (game,_graphDevMan) ->
+            new SpriteBatch(game.GraphicsDevice)
 
-    let graphics = new GraphicsDeviceManager(x)
-
-    let mutable spriteBatch = Unchecked.defaultof<SpriteBatch>
-
-    let mutable WorldObjects =
-        lazy (
+        LoadContent = fun (game,spriteBatch) ->
+            let actors =
+                [
+                    ( Still <| game.Content.Load<Texture2D> "player"
+                    , WorldActor.ActorType.Player (WorldActor.PlayerState.Nothing)
+                    , Vector2(10.f,10.f)
+                    , Vector2(64.f, 64.f)
+                    , false )
+                    ( FullImage ( game.Content.Load<Texture2D>("enemy")
+                                , { FrameCount = 2; FrameSize = Vector2(128.f, 128.f); TimePerFrame = 1000 })
+                    , WorldActor.ActorType.Wall
+                    , Vector2(256.f, 10.f)
+                    , Vector2(64.f, 64.f)
+                    , true )
+                ]
+                |> List.map (fun (tex, at, pos, size, is) ->
+                    let animation =
+                        tex |> Animation.Create
+                    WorldActor.Create game.Content (animation |> Animation.Lens (fun data -> {data with Size = Vector2(64.f,64.f)}) |> Some) at pos size is
+                )
+            let wonAnimation =
+                game.Content.Load<Texture2D> "AkiCalm"
+                |> Still
+                |> Animation.Create
+                |> Animation.Lens (fun data -> {data with Size = Vector2(64.f,64.f)})
             {
-                Actors =
-                    [
-                        ( Still <| x.Content.Load<Texture2D> "player"
-                        , WorldActor.ActorType.Player (WorldActor.PlayerState.Nothing)
-                        , Vector2(10.f,10.f)
-                        , Vector2(64.f, 64.f)
-                        , false )
-                        ( FullImage ( x.Content.Load<Texture2D>("enemy")
-                                    , { FrameCount = 2; FrameSize = Vector2(128.f, 128.f); TimePerFrame = 1000 })
-                        , WorldActor.ActorType.Wall
-                        , Vector2(256.f, 10.f)
-                        , Vector2(64.f, 64.f)
-                        , true )
-                    ]
-                    |> List.map (fun (tex, at, pos, size, is) ->
-                        let animation =
-                            tex |> Animation.Create
-                        WorldActor.Create x.Content (animation |> Animation.Lens (fun data -> {data with Size = Vector2(64.f,64.f)}) |> Some) at pos size is
-                    )
+                Actors = actors
+                SpriteBatch = spriteBatch
                 Playing = true
-                WonAnimation =
-                    x.Content.Load<Texture2D> "AkiCalm"
-                    |> Still
-                    |> Animation.Create
-                    |> Animation.Lens (fun data -> {data with Size = Vector2(64.f,64.f)})
+                WonAnimation = wonAnimation
             }
-        )
 
-    let DrawActor (spriteBatch: SpriteBatch) (actor: WorldActor.WorldActor) =
-        match actor.Animation with
-        | Some anim -> Animation.Draw spriteBatch anim actor.Position
-        | None -> ()
-
-    override x.Initialize () =
-        spriteBatch <- new SpriteBatch(x.GraphicsDevice)
-        base.Initialize()
-        ()
-
-    override x.LoadContent () =
-        WorldObjects.Force () |> ignore
-        ()
-
-    override x.Update gameTime =
-        let current = WorldObjects.Value.Actors
-        let playing = WorldObjects.Value.Playing
-        let newPlaying =
-            if playing then
-                let player =
-                    current |> List.find (fun actor ->
-                        match actor.ActorType with
-                        | Player _ -> true
-                        | _ -> false
-                    )
-                let enemy =
-                    current
-                    |> List.find (fun actor ->
-                        match actor.ActorType with
-                        | Player _ -> false
-                        | _ -> true
-                    )
-                MathHelper.Distance(enemy.Position.X + enemy.Size.X, player.Position.X) > 0.15f ||
-                MathHelper.Distance(enemy.Position.Y, player.Position.Y) > 10.f
-            else
-                false
-        let value = WorldObjects.Value
-        WorldObjects <-
-            lazy 
-            ({ value with
+        Update = fun (game,gameTime,gameState) ->
+            let current = gameState.Actors
+            let playing = gameState.Playing
+            let newPlaying =
+                if playing then
+                    let player =
+                        current |> List.find (fun actor ->
+                            match actor.ActorType with
+                            | Player _ -> true
+                            | _ -> false
+                        )
+                    let enemy =
+                        current
+                        |> List.find (fun actor ->
+                            match actor.ActorType with
+                            | Player _ -> false
+                            | _ -> true
+                        )
+                    MathHelper.Distance(enemy.Position.X + enemy.Size.X, player.Position.X) > 0.15f ||
+                    MathHelper.Distance(enemy.Position.Y, player.Position.Y) > 10.f
+                else
+                    false
+            { gameState with
                 Actors =
                     current
                     |> List.map (InputHandler.HandleInput (Keyboard.GetState()))
@@ -112,24 +97,29 @@ type Game1 () as x =
                                             actor.Animation
                                             |> Option.map (fun anim ->
                                                 if anim.CurrentFrame = 0 then
-                                                    value.WonAnimation
+                                                    gameState.WonAnimation
                                                 else
                                                     Animation.Lens (fun data ->
-                                                        { data with TimePerFrame = System.Int32.MaxValue }
+                                                        { data with
+                                                            TimePerFrame = System.Int32.MaxValue
+                                                        }
                                                     ) anim
                                             )
                                     }
                             )
                         else x
                 Playing = newPlaying
-            })
-        WorldObjects.Force () |> ignore
-        ()
-
-    override x.Draw gameTime =
-        x.GraphicsDevice.Clear <| Color.CornflowerBlue
-        spriteBatch.Begin ()
-        WorldObjects.Value
-        |> fun gameState -> gameState.Actors |> List.iter (DrawActor spriteBatch)
-        spriteBatch.End ()
-        ()
+            } : GameState
+        Draw = fun (game,_gameTime,gameState) ->
+            let DrawActor (spriteBatch: SpriteBatch) (actor: WorldActor.WorldActor) =
+                match actor.Animation with
+                | Some anim -> Animation.Draw spriteBatch anim actor.Position
+                | None -> ()
+            let spriteBatch = gameState.SpriteBatch
+            game.GraphicsDevice.Clear <| Color.CornflowerBlue
+            spriteBatch.Begin ()
+            gameState.Actors |> List.iter (DrawActor spriteBatch)
+            spriteBatch.End ()
+            ()
+        UnloadContent = fun _ -> ()
+    } : FSharpGame.FSharpGameBehaviour<SpriteBatch,GameState>
